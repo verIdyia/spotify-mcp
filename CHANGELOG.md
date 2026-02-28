@@ -9,6 +9,10 @@
 - Replaced removed batch artist endpoint with parallel individual fetches
 - Updated playlist creation to use `POST /me/playlists`
 
+### New Features
+- Added playlist `delete` action (unfollow/delete via `DELETE /playlists/{id}/followers`)
+- Lazy client initialization -- server starts without credentials, client created on first tool call
+
 ### Bug Fixes
 - Replaced `assert` with proper error handling for unknown tool names
 - Fixed `change_playlist_details()` missing return value

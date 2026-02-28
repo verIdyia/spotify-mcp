@@ -14,6 +14,8 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that c
 - **Playlist creation**: Uses `POST /me/playlists` instead of deprecated `POST /users/{id}/playlists`
 
 ### Bug Fixes & Improvements
+- **New**: Playlist `delete` action (unfollow/delete playlists)
+- **Fixed**: Lazy client initialization -- no longer crashes at import time without credentials
 - **Fixed**: `assert` crash replaced with proper error handling for unknown tool names
 - **Fixed**: `change_playlist_details()` now returns the API response
 - **Fixed**: `get_liked_songs()` limit edge case -- stops fetching as soon as limit is reached
@@ -49,7 +51,7 @@ Claude <--MCP (stdio)--> spotify-mcp server <--REST API--> Spotify Web API
 | `SpotifySearch` | -- | Search tracks, albums, artists, playlists |
 | `SpotifyQueue` | `get`, `add` | View and manage play queue |
 | `SpotifyGetInfo` | -- | Get detailed item info by Spotify URI |
-| `SpotifyPlaylist` | `get`, `get_tracks`, `add_tracks`, `remove_tracks`, `change_details`, `create` | Full playlist management |
+| `SpotifyPlaylist` | `get`, `get_tracks`, `add_tracks`, `remove_tracks`, `change_details`, `create`, `delete` | Full playlist management |
 | `SpotifyLikedSongs` | `get`, `get_with_genres` | Retrieve saved songs with optional genres |
 
 ### Architecture
