@@ -61,6 +61,12 @@ SCOPES = " ".join([
 ])
 
 DEV_LIMIT = 10  # Spotify Dev Mode: max search results per request (Feb 2026)
+PAGE_LIMIT = 50  # Spotify max page size for playlist/library item listings
+
+TRACKS_UNAVAILABLE = (
+    "Track list unavailable: this app cannot read the contents of playlists it "
+    "does not own (Spotify returns 403)."
+)
 
 
 # ── Token Management ─────────────────────────────────────────────────────────
@@ -235,23 +241,30 @@ def _parse_playlist(p: dict, username: str = None, detailed: bool = False) -> Op
     """Parse playlist. Handles Feb 2026 API field renames: tracks->items, track->item."""
     if not p:
         return None
-    content = p.get("items") or p.get("tracks") or {}
+    # Spotify omits the track container entirely for playlists this app may not
+    # read. A missing container is not an empty one: defaulting it to {} here
+    # would report a populated playlist as having 0 tracks.
+    content = p.get("items", p.get("tracks"))
+    if not isinstance(content, dict):
+        content = None
     r = {
         "name": p.get("name"),
         "id": p.get("id"),
         "owner": p.get("owner", {}).get("display_name"),
-        "total_tracks": content.get("total", 0) if isinstance(content, dict) else 0,
+        "total_tracks": content.get("total", 0) if content is not None else None,
     }
     if username:
         r["user_is_owner"] = r["owner"] == username
+    if content is None:
+        r["error"] = TRACKS_UNAVAILABLE
     if detailed:
         r["description"] = p.get("description")
-        raw = content.get("items", []) if isinstance(content, dict) else []
-        r["tracks"] = [
-            _parse_track(item.get("item") or item.get("track"))
-            for item in raw
-            if item and (item.get("item") or item.get("track"))
-        ]
+        if content is not None:
+            r["tracks"] = [
+                _parse_track(item.get("item") or item.get("track"))
+                for item in content.get("items", [])
+                if item and (item.get("item") or item.get("track"))
+            ]
     return r
 
 
@@ -479,14 +492,24 @@ async def spotify_playlist(
             case "get_tracks":
                 if not playlist_id:
                     return "Error: playlist_id is required."
-                data = await _get(f"playlists/{playlist_id}/items", limit=50)
-                if not data:
-                    return "[]"
-                tracks = [
-                    _parse_track(item.get("item") or item.get("track"))
-                    for item in data.get("items", [])
-                    if item and (item.get("item") or item.get("track"))
-                ]
+                tracks = []
+                offset = 0
+                while True:
+                    data = await _get(
+                        f"playlists/{playlist_id}/items",
+                        limit=PAGE_LIMIT,
+                        offset=offset,
+                    )
+                    if not data or not data.get("items"):
+                        break
+                    tracks.extend(
+                        _parse_track(item.get("item") or item.get("track"))
+                        for item in data["items"]
+                        if item and (item.get("item") or item.get("track"))
+                    )
+                    if not data.get("next"):
+                        break
+                    offset += PAGE_LIMIT
                 return json.dumps(tracks, indent=2)
 
             case "add_tracks":
